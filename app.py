@@ -163,4 +163,4 @@ if st.session_state.schedule:
                 elif '(OFF)' in val: color = 'red'
                 return f'background-color: {bg}; color: {color}; font-weight: bold; text-align: center; white-space: pre;'
 
-            st.table(cal_df.style.applymap(style_cal))
+            st.table(cal_df.style.map(style_cal))
