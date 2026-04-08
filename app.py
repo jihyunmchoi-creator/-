@@ -6,7 +6,7 @@ from datetime import datetime
 import io
 
 # 페이지 설정
-st.set_page_config(page_title="간호사 스케줄러", layout="wide")
+st.set_page_config(page_title="봉츄 간호사 스케쥴러", layout="wide")
 
 # --- 1. 기본 데이터 및 로직 ---
 WEEKS_KR = ["월", "화", "수", "목", "금", "토", "일"]
