@@ -37,7 +37,6 @@ st.sidebar.metric("인원 가동률", f"{util_rate:.1f}%")
 
 # --- 3. 메인 화면 ---
 st.title("📅 간호사 3교대 스케줄러")
-st.write(f"### {year}년 {month}월 근무 생성")
 
 nurses_data = []
 with st.expander("👤 간호사 명단 및 숙련도 설정", expanded=True):
@@ -47,6 +46,10 @@ with st.expander("👤 간호사 명단 및 숙련도 설정", expanded=True):
         level = c2.selectbox(f"숙련도", LEVELS, index=2, key=f"lv_{i}")
         exclude = c3.multiselect(f"제외 듀티", ["D", "E", "N"], key=f"ex_{i}")
         nurses_data.append({"name": name, "level": level, "ex": exclude})
+
+# 세션 상태 초기화 (근무표 저장용)
+if 'schedule' not in st.session_state:
+    st.session_state.schedule = None
 
 # --- 4. 근무 생성 엔진 ---
 if st.button("🚀 근무표 생성하기", use_container_width=True):
@@ -61,7 +64,6 @@ if st.button("🚀 근무표 생성하기", use_container_width=True):
         avail = [n for n in nurses_data]
         cur_req = {"D": req_d, "E": req_e, "N": req_n}
 
-        # 수간호사 규칙
         for n in avail[:]:
             if n['level'] == "수간호사":
                 nm = n['name']
@@ -95,8 +97,14 @@ if st.button("🚀 근무표 생성하기", use_container_width=True):
             nm = n['name']
             res[nm][d], last[nm], consec[nm] = "OFF", "OFF", 0
             off_c[nm] += 1
+    
+    st.session_state.schedule = res
 
+# --- 5. 결과 표시 영역 ---
+if st.session_state.schedule:
     st.divider()
+    res = st.session_state.schedule
+    _, days = calendar.monthrange(year, month)
     df_res = pd.DataFrame(res).T
     df_res.columns = [f"{i+1}일" for i in range(days)]
     
@@ -109,14 +117,50 @@ if st.button("🚀 근무표 생성하기", use_container_width=True):
         elif val == 'OFF': color = 'red'
         return f'background-color: {bg}; color: {color}; font-weight: bold'
 
-    st.write("### 📊 생성된 전체 근무표")
-    # 최신 버전에 맞게 applymap을 map으로 수정
-    st.dataframe(df_res.style.map(style_shifts), use_container_width=True)
+    # 전체 근무표 탭과 개인 달력 탭 분리
+    tab1, tab2 = st.tabs(["📊 전체 근무표", "📅 개인별 달력"])
 
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_res.to_excel(writer, sheet_name='근무표')
-    st.download_button(label="📥 엑셀 다운로드", data=output.getvalue(), 
-                       file_name=f"Schedule_{year}_{month}.xlsx", 
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                       use_container_width=True)
+    with tab1:
+        st.dataframe(df_res.style.map(style_shifts), use_container_width=True)
+        
+        # 엑셀 다운로드 버튼
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_res.to_excel(writer, sheet_name='근무표')
+        st.download_button(label="📥 전체 엑셀 다운로드", data=output.getvalue(), 
+                           file_name=f"Schedule_{year}_{month}.xlsx", 
+                           mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           use_container_width=True)
+
+    with tab2:
+        selected_nurse = st.selectbox("간호사 선택", list(res.keys()))
+        if selected_nurse:
+            # 달력 데이터 생성
+            cal = calendar.monthcalendar(year, month)
+            cal_data = []
+            nurse_shifts = res[selected_nurse]
+            
+            for week in cal:
+                week_display = []
+                for day in week:
+                    if day == 0:
+                        week_display.append("")
+                    else:
+                        shift = nurse_shifts[day-1]
+                        week_display.append(f"{day}\n({shift})")
+                cal_data.append(week_display)
+            
+            cal_df = pd.DataFrame(cal_data, columns=WEEKS_KR)
+            
+            # 달력 스타일링
+            def style_cal(val):
+                if not val: return ''
+                bg = 'white'
+                color = 'black'
+                if '(D)' in val: bg = '#E3F2FD'
+                elif '(E)' in val: bg = '#F3E5F5'
+                elif '(N)' in val: bg = '#FFEBEE'
+                elif '(OFF)' in val: color = 'red'
+                return f'background-color: {bg}; color: {color}; font-weight: bold; text-align: center; white-space: pre;'
+
+            st.table(cal_df.style.applymap(style_cal))
