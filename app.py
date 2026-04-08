@@ -36,7 +36,7 @@ util_rate = (total_req / num_nurses) * 100
 st.sidebar.metric("인원 가동률", f"{util_rate:.1f}%")
 
 # --- 3. 메인 화면 ---
-st.title("📅 간호사 3교대 스케줄러")
+st.title("📅 간호사 3교대 스케쥴러")
 
 nurses_data = []
 with st.expander("👤 간호사 명단 및 숙련도 설정", expanded=True):
